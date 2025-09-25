@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sxobsplan"
+version = "0.1.0"
+description = "Follow-up observation planning for SPHEREx SSO targets"
+authors = [{ name = "Bumhoo Lim" }]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "astroquery",
+  "astropy",
+  "pandas",
+  "tqdm",
+]
+
+[tool.setuptools]
+# only package the 'sxobsplan' package
+packages = { find = { include = ["sxobsplan*"], exclude = ["notebooks*", "tests*", "docs*"] } }
