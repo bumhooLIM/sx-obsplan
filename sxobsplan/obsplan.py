@@ -51,11 +51,11 @@ def resolve_location(location: LocationLike) -> EarthLocation:
 
     if isinstance(location, str):
         try:
-            return EarthLocation.of_site(location)
+            return EarthLocation.of_site(location, refresh_cache=True)
         except Exception as e:
             raise ValueError(f"Could not resolve observatory code '{location}': {e}")
 
-    raise TypeError("location must be EarthLocation or str (MPC/IAU observatory code).")
+    raise TypeError("location must be EarthLocation or str (observatory name).")
 
 
 def _normalize_date_to_noon_utc(date) -> Time:
@@ -78,14 +78,13 @@ def is_target_visible(
     date,                                 # Time | datetime/date | str (UTC)
     location: LocationLike,               # EarthLocation | MPC code
     *,
-    height_min: u.Quantity = 30 * u.deg,  # Minimum altitude
+    elev_min: u.Quantity = 30 * u.deg,     # Minimum altitude
     duration:  u.Quantity = 1 * u.hour,   # Required continuous observing time
     dt_step:   u.Quantity = 2 * u.min,    # Sampling cadence
     return_block: bool = True,            # Whether to return visibility blocks
 ):
     """
-    Determine whether a target is observable for at least `duration`
-    above `height_min` during the astronomical night bracketing `date`.
+    Determine target visibility.
 
     Parameters
     ----------
@@ -96,7 +95,7 @@ def is_target_visible(
         internally shifted to 12:00 UTC.
     location : EarthLocation | str
         Observatory location. If string, treated as MPC/IAU observatory code.
-    height_min : Quantity[angle], default 30 deg
+    elev_min : Quantity[angle], default 30 deg
         Minimum altitude threshold.
     duration : Quantity[time], default 1 hour
         Minimum continuous visibility required.
@@ -137,7 +136,7 @@ def is_target_visible(
 
     # Altitudes & masks
     altitudes = obs.altaz(time_grid, target).alt
-    A_high = altitudes >= height_min
+    A_high = altitudes >= elev_min
     A_dark = (time_grid >= e_twilight) & (time_grid <= m_twilight)
     A_vis = A_high & A_dark
 
