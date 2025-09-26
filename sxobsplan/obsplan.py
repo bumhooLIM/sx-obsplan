@@ -22,7 +22,15 @@ __all__ = [
     "resolve_location",
 ]
 
-LocationLike = Union[EarthLocation, str]  # EarthLocation object or MPC/IAU code
+LocationLike = Union[EarthLocation, str]  # EarthLocation object or observatory name
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+warnings.filterwarnings(
+    "ignore",
+    category=AstropyWarning,
+    message="Tried to get polar motions"
+)
 
 def resolve_location(location: LocationLike) -> EarthLocation:
     """

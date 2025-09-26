@@ -18,4 +18,4 @@ dependencies = [
 
 [tool.setuptools]
 # only package the 'sxobsplan' package
-packages = { find = { include = ["sxobsplan*"], exclude = ["notebooks*", "tests*", "docs*"] } }
+packages = { find = { include = ["sxobsplan*"], exclude = ["notebook*", "tests*", "docs*"] } }
