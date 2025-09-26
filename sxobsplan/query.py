@@ -112,6 +112,7 @@ def _fetch_ephemerides(
     assert last_exc is not None
     raise last_exc
 
+
 def read_designations(input_csv: Union[str, Path], column: str = "pdes") -> List[str]:
     """
     Read a CSV and return the list of primary designations (as strings).
@@ -131,6 +132,7 @@ def read_designations(input_csv: Union[str, Path], column: str = "pdes") -> List
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in {input_csv}. Columns: {list(df.columns)}")
     return df[column].dropna().astype(str).tolist()
+
 
 def fetch_with_fallback(
     designation: str,
@@ -172,6 +174,7 @@ def fetch_with_fallback(
         logger.warning(f"Failed for '{designation}': {e}")
         return None
 
+
 def batch_query(
     designations: Iterable[str],
     epochs: Dict[str, str],
@@ -179,7 +182,7 @@ def batch_query(
     location: str = "500",
     *,
     limit: int = 0,
-    progress: bool = True,
+    progress: bool = False,
     start_index: int = 1,
     max_retries: int = 2,
     sleep_s: float = 1.0,
@@ -200,7 +203,7 @@ def batch_query(
     limit : int
         If >0, process only the first N designations (useful for testing).
     progress : bool
-        Show a tqdm progress bar if True.
+        Show a tqdm progress bar if True (deafault False).
     start_index : int
         Starting value for the 'ID' column (default 1).
     max_retries : int
