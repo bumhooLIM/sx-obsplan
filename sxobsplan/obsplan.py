@@ -24,6 +24,7 @@ __all__ = [
 
 LocationLike = Union[EarthLocation, str]  # EarthLocation object or observatory name
 
+# Ignore polar motion warnings from astropy
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 warnings.filterwarnings(
@@ -87,8 +88,8 @@ def is_target_visible(
     location: LocationLike,               # EarthLocation | MPC code
     *,
     elev_min: u.Quantity = 30 * u.deg,    # Minimum altitude
-    duration:  u.Quantity = 1 * u.hour,   # Required continuous observing time
-    dt_step:   u.Quantity = 10 * u.min,    # Sampling cadence
+    duration: u.Quantity = 1 * u.hour,    # Required continuous observing time
+    dt_step: u.Quantity = 10 * u.min,     # Sampling cadence
     return_block: bool = True,            # Whether to return visibility blocks
 ):
     """
