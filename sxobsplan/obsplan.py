@@ -21,6 +21,8 @@ from .query import fetch_with_fallback
 __all__ = [
     "is_target_visible",
     "resolve_location",
+    "is_target_visible_timegrid",
+    "sso_target_visible_daily",
 ]
 
 LocationLike = Union[EarthLocation, str]  # EarthLocation object or observatory name
@@ -345,7 +347,7 @@ def _get_best_obstime(ephem, min_alt=20.0):
     # 'solar_presence' column: '*' (daylight), 'C' (civil twilight), 'N' (nautical), 'A' (astronomical), '' (dark)
     # We consider it "night" if it is not daylight and not civil twilight.
     if 'solar_presence' in ephem.colnames:
-        is_night = ~np.isin(ephem['solar_presence'], ['*', 'C'])
+        is_night = ~np.isin(ephem['solar_presence'], ['*', 'C', 'N', 'A'])
     else:
         # Fallback if the column is missing
         is_night = np.ones(len(ephem), dtype=bool)
@@ -411,7 +413,7 @@ def sso_target_visible_daily(target_name, date, location, min_alt=20.0):
     # Construct a 24-hour UT time window for the given date
     start_time = f"{date} 00:00:00"
     t_start = Time(start_time, format='iso', scale='utc')
-    t_stop = t_start + 1.0  
+    t_stop = t_start + 1.0*u.day
     
     epochs = {
         'start': t_start.strftime('%Y-%m-%d %H:%M'),
@@ -421,7 +423,7 @@ def sso_target_visible_daily(target_name, date, location, min_alt=20.0):
     
     try:
         # Use the imported function from query.py instead of calling Horizons directly
-        ephem = fetch_with_fallback(target=target_name, location=location, epochs=epochs)
+        ephem = fetch_with_fallback(target_id=target_name, location=location, epochs=epochs)
         
         # Guard clause in case the query fails or returns None
         if ephem is None or len(ephem) == 0:
