@@ -88,7 +88,7 @@ def _extract_last_record_number(error_message: str) -> Optional[str]:
 def _fetch_ephemerides(
     target_id: str,
     epochs: Dict[str, str],
-    quantities: str,
+    # quantities: str,
     location: str,
     *,
     max_retries: int = 2,
@@ -102,7 +102,7 @@ def _fetch_ephemerides(
     for attempt in range(max_retries + 1):
         try:
             obj = Horizons(id=target_id, id_type=id_type, location=location, epochs=epochs)
-            return obj.ephemerides(quantities=quantities)
+            return obj.ephemerides()
         except Exception as exc:
             last_exc = exc
             if attempt < max_retries:
@@ -113,7 +113,7 @@ def _fetch_ephemerides(
     raise last_exc
 
 
-def read_designations(input_csv: Union[str, Path], column: str = "pdes") -> List[str]:
+def read_designations(input_csv: Union[str, Path], desig_col: str = "pdes") -> List[str]:
     """
     Read a CSV and return the list of primary designations (as strings).
 
@@ -129,15 +129,15 @@ def read_designations(input_csv: Union[str, Path], column: str = "pdes") -> List
     list[str]
     """
     df = pd.read_csv(input_csv)
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in {input_csv}. Columns: {list(df.columns)}")
-    return df[column].dropna().astype(str).tolist()
+    if desig_col not in df.columns:
+        raise ValueError(f"Column '{desig_col}' not found in {input_csv}. Columns: {list(df.columns)}")
+    return df[desig_col].dropna().astype(str).tolist()
 
 
 def fetch_with_fallback(
     target_id: str,
     epochs: Dict[str, str],
-    quantities: str,
+    # quantities: str,
     location: str,
     id_type: Optional[str] = None,
     *,
@@ -210,7 +210,7 @@ def fetch_with_fallback(
     """
     try:
         return _fetch_ephemerides(
-            target_id, epochs=epochs, quantities=quantities, location=location, id_type=id_type, max_retries=max_retries, sleep_s=sleep_s
+            target_id, epochs=epochs, location=location, id_type=id_type, max_retries=max_retries, sleep_s=sleep_s
         )
     except ValueError as e:
         record = _extract_last_record_number(str(e))
@@ -218,7 +218,7 @@ def fetch_with_fallback(
             logger.info(f"Non-unique id for '{target_id}'. Retrying with record #{record} ...")
             try:
                 return _fetch_ephemerides(
-                    record, epochs=epochs, quantities=quantities, location=location, id_type=None, max_retries=max_retries, sleep_s=sleep_s
+                    record, epochs=epochs, location=location, id_type=None, max_retries=max_retries, sleep_s=sleep_s
                 )
             except Exception as e2:
                 logger.warning(f"Failed with record #{record} for '{target_id}': {e2}")
@@ -233,7 +233,7 @@ def fetch_with_fallback(
 def batch_query(
     designations: Iterable[str],
     epochs: Dict[str, str],
-    quantities: str,
+    # quantities: str,
     location: str = "500",
     *,
     limit: int = 0,
@@ -282,7 +282,7 @@ def batch_query(
     out_table: Optional[Table] = None
     for i, name in iterator:
         tab = fetch_with_fallback(
-            name, epochs=epochs, quantities=quantities, location=location, id_type=None,
+            name, epochs=epochs, location=location, id_type=None,
             max_retries=max_retries, sleep_s=sleep_s
         )
         if tab is None or len(tab) == 0:

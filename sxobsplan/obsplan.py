@@ -16,6 +16,7 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
 from astroplan import Observer, FixedTarget
 from typing import Union
+from .query import fetch_with_fallback
 
 __all__ = [
     "is_target_visible",
@@ -323,3 +324,111 @@ def is_target_visible_timegrid(
     return is_visible_arr, duration_arr
 
 
+def _get_best_obstime(ephem, min_alt=20.0):
+    """
+    Supportive function to evaluate target visibility, best UT time, and magnitude.
+    
+    Parameters
+    ----------
+    ephem : astropy.table.Table
+        Ephemeris table returned from JPL Horizons.
+    min_alt : float
+        Minimum altitude (elevation) in degrees for the target to be considered visible.
+        
+    Returns
+    -------
+    is_target_visible : bool
+    best_time_ut : str or None
+    mag : float or None
+    """
+    # 1. Check for Night Time
+    # 'solar_presence' column: '*' (daylight), 'C' (civil twilight), 'N' (nautical), 'A' (astronomical), '' (dark)
+    # We consider it "night" if it is not daylight and not civil twilight.
+    if 'solar_presence' in ephem.colnames:
+        is_night = ~np.isin(ephem['solar_presence'], ['*', 'C'])
+    else:
+        # Fallback if the column is missing
+        is_night = np.ones(len(ephem), dtype=bool)
+
+    # 2. Check for Altitude (Elevation)
+    if 'EL' in ephem.colnames:
+        visible = (ephem['EL'] > min_alt) & is_night
+    else:
+        visible = np.zeros(len(ephem), dtype=bool)
+
+    # If the target never breaches the minimum altitude during the night, it's not visible
+    if not np.any(visible):
+        return False, None, None
+
+    # Filter down to only the visible night-time rows
+    vis_ephem = ephem[visible]
+    
+    # 3. Find Best Time (Highest Altitude)
+    best_idx = np.argmax(vis_ephem['EL'])
+    best_row = vis_ephem[best_idx]
+    
+    # Extract UT time in HH:MM format from 'datetime_str'
+    best_time_str = best_row['datetime_str']
+    best_time_ut = best_time_str.split(' ')[1][:5]
+    
+    # 4. Extract Magnitude
+    # Comets usually return 'Tmag' (Total magnitude) while asteroids return 'V'
+    if 'Tmag' in best_row.colnames and not np.ma.is_masked(best_row['Tmag']):
+        mag = float(best_row['Tmag'])
+    elif 'V' in best_row.colnames and not np.ma.is_masked(best_row['V']):
+        mag = float(best_row['V'])
+    else:
+        mag = np.nan
+        
+    return True, best_time_ut, round(mag, 1) if not np.isnan(mag) else np.nan
+
+
+def sso_target_visible_daily(target_name, date, location, min_alt=20.0):
+    """
+    Checks the visibility of a Solar System Object on a specific date, 
+    calculating the best observation time and magnitude.
+    
+    Parameters
+    ----------
+    target_name : str
+        Target designation (e.g., '24P', 'C/2023 C2').
+    date : str
+        The date to check in 'YYYY-MM-DD' format.
+    location : str
+        Observatory location code (based on MPC observatory code standards).
+    min_alt : float
+        Minimum altitude in degrees to consider the target visible.
+        
+    Returns
+    -------
+    is_target_visible : bool
+        True if the target is visible at night above the minimum altitude.
+    best_time_UT : str
+        The UT time (HH:MM) when the target reaches maximum altitude during the night.
+    mag : float
+        The Tmag (or Vmag) of the target at the best observation time.
+    """
+    # Construct a 24-hour UT time window for the given date
+    start_time = f"{date} 00:00:00"
+    t_start = Time(start_time, format='iso', scale='utc')
+    t_stop = t_start + 1.0  
+    
+    epochs = {
+        'start': t_start.strftime('%Y-%m-%d %H:%M'),
+        'stop': t_stop.strftime('%Y-%m-%d %H:%M'),
+        'step': '30m'  
+    }
+    
+    try:
+        # Use the imported function from query.py instead of calling Horizons directly
+        ephem = fetch_with_fallback(target=target_name, location=location, epochs=epochs)
+        
+        # Guard clause in case the query fails or returns None
+        if ephem is None or len(ephem) == 0:
+            return False, None, None
+            
+        return _get_best_obstime(ephem, min_alt=min_alt)
+        
+    except Exception as e:
+        print(f"Error processing visibility for {target_name}: {e}")
+        return False, None, None
