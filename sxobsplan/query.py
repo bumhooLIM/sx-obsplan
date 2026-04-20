@@ -87,13 +87,13 @@ def _extract_last_record_number(error_message: str) -> Optional[str]:
 
 def _fetch_ephemerides(
     target_id: str,
-    id_type: Optional[str],
     epochs: Dict[str, str],
     quantities: str,
     location: str,
     *,
     max_retries: int = 2,
     sleep_s: float = 1.0,
+    id_type: Optional[str] = None,
 ) -> Table:
     """
     Low-level fetch with simple retry/backoff.
@@ -135,10 +135,11 @@ def read_designations(input_csv: Union[str, Path], column: str = "pdes") -> List
 
 
 def fetch_with_fallback(
-    designation: str,
+    target_id: str,
     epochs: Dict[str, str],
     quantities: str,
     location: str,
+    id_type: Optional[str] = None,
     *,
     max_retries: int = 2,
     sleep_s: float = 1.0,
@@ -152,26 +153,80 @@ def fetch_with_fallback(
     -------
     astropy.table.Table | None
         Ephemerides table, or None if both attempts fail.
+    
+    Notes
+    -----
+    quantities codes:
+        1. Astrometric RA & DEC
+      * 2. Apparent RA & DEC
+        3.   Rates; RA & DEC
+      * 4. Apparent AZ & EL
+        5.   Rates; AZ & EL
+        6. Satellite X & Y, position angle
+        7. Local apparent sidereal time
+        8. Airmass and Visual Magnitude Extinction
+        9. Visual magnitude & surface Brightness
+       10. Illuminated fraction
+       11. Defect of illumination
+       12. Satellite angle of separation/visibility code
+       13. Target angular diameter
+       14. Observer sub-longitude & sub-latitude
+       15. Sun sub-longitude & sub-latitude
+       16. Sub-Sun position angle & distance from disc center
+       17. North pole position angle & sistance from disc center
+       18. Heliocentric ecliptic longitude & latitude
+       19. Heliocentric range & range-rate
+       20. Observer range & range-rate
+       21. One-way down-leg light-time
+       22. Speed of target with respect to Sun & observer
+       23. Sun-Observer-Targ ELONGATION angle
+       24. Sun-Target-Observer ~PHASE angle
+       25. Target-Observer-Moon/Illumination%
+       26. Observer-Primary-Target angle
+       27. Position Angles; radius & -velocity
+       28. Orbit plane angle
+       29. Constellation Name
+       30. Delta-T (TDB - UT)
+     * 31. Observer-centered Earth ecliptic longitude & latitude
+       32. North pole RA & DEC
+       33. Galactic longitude and latitude
+       34. Local apparent SOLAR time
+       35. Earth->Site light-time
+     > 36. RA & DEC uncertainty
+     > 37. Plane-of-sky (POS) error ellipse
+     > 38. Plane-of-sky (POS) uncertainty (RSS)
+     > 39. Range & range-rate sigma
+     > 40. Doppler/delay sigmas
+       41. True anomaly angle
+     * 42. Local apparent hour angle
+       43. PHASE angle & bisector
+       44. Apparent target-centered longitude of Sun (L_s)
+     * 45. Inertial frame apparent RA & DEC
+       46.   Rates: Inertial RA & DEC
+     * 47. Sky motion: angular rate & angles
+       48. Lunar sky brightness & target visual SNR
+       49. DUT1 (UT1 - UTC)
+
     """
     try:
         return _fetch_ephemerides(
-            designation, "designation", epochs, quantities, location, max_retries=max_retries, sleep_s=sleep_s
+            target_id, epochs=epochs, quantities=quantities, location=location, id_type=id_type, max_retries=max_retries, sleep_s=sleep_s
         )
     except ValueError as e:
         record = _extract_last_record_number(str(e))
         if record:
-            logger.info(f"Non-unique id for '{designation}'. Retrying with record #{record} ...")
+            logger.info(f"Non-unique id for '{target_id}'. Retrying with record #{record} ...")
             try:
                 return _fetch_ephemerides(
-                    record, None, epochs, quantities, location, max_retries=max_retries, sleep_s=sleep_s
+                    record, epochs=epochs, quantities=quantities, location=location, id_type=None, max_retries=max_retries, sleep_s=sleep_s
                 )
             except Exception as e2:
-                logger.warning(f"Failed with record #{record} for '{designation}': {e2}")
+                logger.warning(f"Failed with record #{record} for '{target_id}': {e2}")
                 return None
-        logger.warning(f"No record id found in error for '{designation}'. Skipping.")
+        logger.warning(f"No record id found in error for '{target_id}'. Skipping.")
         return None
     except Exception as e:
-        logger.warning(f"Failed for '{designation}': {e}")
+        logger.warning(f"Failed for '{target_id}': {e}")
         return None
 
 
@@ -227,7 +282,7 @@ def batch_query(
     out_table: Optional[Table] = None
     for i, name in iterator:
         tab = fetch_with_fallback(
-            name, epochs=epochs, quantities=quantities, location=location,
+            name, epochs=epochs, quantities=quantities, location=location, id_type=None,
             max_retries=max_retries, sleep_s=sleep_s
         )
         if tab is None or len(tab) == 0:
