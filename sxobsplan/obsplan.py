@@ -345,7 +345,7 @@ def _get_best_obstime(ephem, min_alt=20.0):
     """
     # 1. Check for Night Time
     # 'solar_presence' column: '*' (daylight), 'C' (civil twilight), 'N' (nautical), 'A' (astronomical), '' (dark)
-    # We consider it "night" if it is not daylight and not civil twilight.
+    # We consider it "night" if it is not daylight and not any twilight.
     if 'solar_presence' in ephem.colnames:
         is_night = ~np.isin(ephem['solar_presence'], ['*', 'C', 'N', 'A'])
     else:
