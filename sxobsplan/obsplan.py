@@ -437,35 +437,42 @@ def _get_best_obstime(ephem, min_alt=20.0):
     return True, best_time_ut, round(mag, 1) if not np.isnan(mag) else np.nan
 
 
-def sso_target_visible_daily(target_name, date, location, min_alt=20.0):
+def sso_target_visible_daily(target_name, date, location, min_alt=20.0, ut_offset=-7.0):
     """
-    Checks the visibility of a Solar System Object on a specific date, 
-    calculating the best observation time and magnitude.
+    Checks the visibility of a Solar System Object on a specific calendar date,
+    anchored to the local night of the observatory.
     
     Parameters
     ----------
     target_name : str
         Target designation (e.g., '24P', 'C/2023 C2').
     date : str
-        The date to check in 'YYYY-MM-DD' format.
+        The local date of the observing night in 'YYYY-MM-DD' format.
     location : str
-        Observatory location code (based on MPC observatory code standards).
+        Observatory location code (e.g., 'G96' for LOAO).
     min_alt : float
         Minimum altitude in degrees to consider the target visible.
+    ut_offset : float
+        Timezone offset from UT in hours (e.g., -7.0 for LOAO/Arizona, +9.0 for Korea).
         
     Returns
     -------
     is_target_visible : bool
-        True if the target is visible at night above the minimum altitude.
     best_time_UT : str
-        The UT time (HH:MM) when the target reaches maximum altitude during the night.
     mag : float
-        The Tmag (or Vmag) of the target at the best observation time.
     """
-    # Construct a 24-hour UT time window for the given date
-    start_time = f"{date} 00:00:00"
-    t_start = Time(start_time, format='iso', scale='utc')
-    t_stop = t_start + 1.0*u.day
+    # 1. Define local midnight for the requested date (e.g., 2026-07-01 00:00 Local)
+    local_midnight_str = f"{date} 00:00:00"
+    
+    # 2. Convert local midnight to UT by subtracting the timezone offset
+    # Example: 2026-07-01 00:00 MST minus (-7 hours) -> 2026-07-01 07:00 UT
+    t_midnight_local = Time(local_midnight_str, format='iso', scale='utc')
+    t_midnight_ut = t_midnight_local - ut_offset * u.hour
+    
+    # 3. Create a 32-hour window centered on local midnight (-16h to +16h)
+    # This fully envelops any local night layout safely across any timezone.
+    t_start = t_midnight_ut - 16.0 * u.hour
+    t_stop = t_midnight_ut + 16.0 * u.hour
     
     epochs = {
         'start': t_start.strftime('%Y-%m-%d %H:%M'),
@@ -474,10 +481,8 @@ def sso_target_visible_daily(target_name, date, location, min_alt=20.0):
     }
     
     try:
-        # Use the imported function from query.py instead of calling Horizons directly
         ephem = fetch_with_fallback(target_id=target_name, location=location, epochs=epochs)
         
-        # Guard clause in case the query fails or returns None
         if ephem is None or len(ephem) == 0:
             return False, None, None
             
