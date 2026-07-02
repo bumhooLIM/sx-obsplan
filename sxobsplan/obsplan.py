@@ -231,8 +231,8 @@ def is_target_visible_timegrid(
     time_grid = t0[:, np.newaxis] + time_offsets[np.newaxis, :]
 
     # 2. Safely broadcast RA/DEC to array size N to prevent np.newaxis IndexErrors
-    ra_arr = np.broadcast_to(np.atleast_1d(ra), N)
-    dec_arr = np.broadcast_to(np.atleast_1d(dec), N)
+    ra_arr = np.broadcast_to(np.atleast_1d(ra), N) * ra.unit
+    dec_arr = np.broadcast_to(np.atleast_1d(dec), N) * dec.unit
     
     coord = SkyCoord(ra=ra_arr, dec=dec_arr)[:, np.newaxis]
     target = FixedTarget(coord=coord, name="Target")
